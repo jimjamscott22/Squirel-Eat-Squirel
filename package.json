@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 4173",
+    "test": "node ./squirrelGame.test.mjs",
+    "playtest": "node ./web_game_playwright_client.js --url http://127.0.0.1:4173/index.html --actions-file ./squirrel_actions.json --iterations 2 --pause-ms 250 --screenshot-dir ./output/squirrel"
+  },
+  "dependencies": {
+    "playwright": "^1.59.1"
+  }
+}
