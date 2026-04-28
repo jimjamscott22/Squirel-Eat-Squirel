@@ -5,11 +5,19 @@ import {
   spawnSquirrel,
   updateState,
 } from "./squirrelLogic.mjs";
+import {
+  CHARACTER_CHOICES,
+  DEFAULT_CHARACTER,
+  normalizeCharacterChoice,
+} from "./characterSkins.mjs";
 
 const canvas = document.querySelector("#game");
+const characterPicker = document.querySelector(".character-picker");
+const characterButtons = [...document.querySelectorAll("[data-character]")];
 const ctx = canvas.getContext("2d");
 const view = { width: canvas.width, height: canvas.height };
 const input = { up: false, down: false, left: false, right: false };
+let selectedCharacter = DEFAULT_CHARACTER;
 let state = createInitialState();
 let started = false;
 let lastTime = performance.now();
@@ -80,35 +88,180 @@ function drawTree(x, y) {
   ctx.fill();
 }
 
-function drawSquirrel(entity, isPlayer) {
+function characterPalette(characterId, edible, isPlayer) {
+  if (!isPlayer) {
+    return edible
+      ? { body: "#c98d54", bodyDark: "#85502e", belly: "#f3c989", tail: "#e2ad70", tailDark: "#9b5b2e", accent: "#5b321f" }
+      : { body: "#74452f", bodyDark: "#3f251b", belly: "#b4825b", tail: "#5a3325", tailDark: "#2e1b15", accent: "#26150f" };
+  }
+
+  if (characterId === "chipmunk") {
+    return { body: "#b8793e", bodyDark: "#6f3f22", belly: "#f3d19a", tail: "#8f5a31", tailDark: "#4a2a19", accent: "#fff0c7" };
+  }
+  if (characterId === "fox") {
+    return { body: "#c8642e", bodyDark: "#743217", belly: "#fff0d0", tail: "#d87338", tailDark: "#6f321b", accent: "#2b1b13" };
+  }
+  return { body: "#b85d2f", bodyDark: "#66311b", belly: "#f6d39b", tail: "#e07b3d", tailDark: "#8c4323", accent: "#2a1a12" };
+}
+
+function fillShadedEllipse(x, y, radiusX, radiusY, color, shade, rotation = 0) {
+  const gradient = ctx.createRadialGradient(x - radiusX * 0.32, y - radiusY * 0.38, 1, x, y, Math.max(radiusX, radiusY));
+  gradient.addColorStop(0, "#fff2c9");
+  gradient.addColorStop(0.18, color);
+  gradient.addColorStop(1, shade);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.ellipse(x, y, radiusX, radiusY, rotation, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawEye(radius) {
+  ctx.fillStyle = "#20130d";
+  ctx.beginPath();
+  ctx.arc(radius * 0.68, -radius * 0.44, Math.max(2, radius * 0.08), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff7db";
+  ctx.beginPath();
+  ctx.arc(radius * 0.7, -radius * 0.47, Math.max(1, radius * 0.028), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSquirrelShape(entity, palette) {
+  const r = entity.radius;
+
+  ctx.fillStyle = palette.tailDark;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.9, -r * 0.08, r * 0.42, r * 0.9, -0.58, 0, Math.PI * 2);
+  ctx.ellipse(-r * 0.98, -r * 0.64, r * 0.35, r * 0.48, 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  fillShadedEllipse(-r * 0.72, -r * 0.28, r * 0.4, r * 0.78, palette.tail, palette.tailDark, -0.5);
+  ctx.strokeStyle = "rgba(255, 231, 169, 0.5)";
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  ctx.beginPath();
+  ctx.arc(-r * 0.9, -r * 0.46, r * 0.45, Math.PI * 0.86, Math.PI * 1.72);
+  ctx.stroke();
+
+  fillShadedEllipse(0, 0, r * 0.9, r * 0.7, palette.body, palette.bodyDark);
+  fillShadedEllipse(r * 0.55, -r * 0.36, r * 0.42, r * 0.36, palette.body, palette.bodyDark);
+  ctx.fillStyle = palette.belly;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.12, r * 0.12, r * 0.38, r * 0.28, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = palette.bodyDark;
+  ctx.beginPath();
+  ctx.arc(r * 0.34, -r * 0.72, r * 0.17, 0, Math.PI * 2);
+  ctx.arc(r * 0.62, -r * 0.68, r * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawEye(r);
+  ctx.fillStyle = palette.accent;
+  ctx.beginPath();
+  ctx.arc(r * 0.9, -r * 0.26, Math.max(2, r * 0.08), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = palette.bodyDark;
+  ctx.lineWidth = Math.max(1.5, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(r * 0.42, r * 0.36, r * 0.16, 0, Math.PI);
+  ctx.arc(-r * 0.34, r * 0.36, r * 0.16, 0, Math.PI);
+  ctx.stroke();
+}
+
+function drawChipmunkShape(entity, palette) {
+  const r = entity.radius;
+
+  fillShadedEllipse(-r * 0.64, -r * 0.12, r * 0.38, r * 0.64, palette.tail, palette.tailDark, -0.68);
+  fillShadedEllipse(0, 0, r * 0.9, r * 0.66, palette.body, palette.bodyDark);
+  fillShadedEllipse(r * 0.55, -r * 0.34, r * 0.38, r * 0.34, palette.body, palette.bodyDark);
+  ctx.strokeStyle = "#3b2214";
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  for (const offset of [-0.22, 0, 0.22]) {
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.42, -r * (0.3 + offset * 0.2));
+    ctx.quadraticCurveTo(-r * 0.02, -r * (0.56 + offset * 0.2), r * 0.42, -r * (0.28 + offset * 0.2));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = palette.accent;
+  ctx.lineWidth = Math.max(1, r * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.46, -r * 0.18);
+  ctx.quadraticCurveTo(-r * 0.02, -r * 0.4, r * 0.42, -r * 0.16);
+  ctx.stroke();
+
+  ctx.fillStyle = palette.bodyDark;
+  ctx.beginPath();
+  ctx.arc(r * 0.38, -r * 0.66, r * 0.13, 0, Math.PI * 2);
+  ctx.arc(r * 0.62, -r * 0.62, r * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = palette.belly;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.1, r * 0.15, r * 0.32, r * 0.23, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  drawEye(r);
+  ctx.fillStyle = "#2a1a12";
+  ctx.beginPath();
+  ctx.arc(r * 0.88, -r * 0.24, Math.max(2, r * 0.07), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawFoxShape(entity, palette) {
+  const r = entity.radius;
+
+  fillShadedEllipse(-r * 0.72, -r * 0.04, r * 0.34, r * 0.82, palette.tail, palette.tailDark, -0.82);
+  ctx.fillStyle = palette.belly;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.92, -r * 0.5, r * 0.18, r * 0.28, -0.82, 0, Math.PI * 2);
+  ctx.fill();
+  fillShadedEllipse(0, 0, r * 0.86, r * 0.62, palette.body, palette.bodyDark);
+
+  ctx.fillStyle = palette.body;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.34, -r * 0.4);
+  ctx.quadraticCurveTo(r * 0.88, -r * 0.62, r * 1.08, -r * 0.16);
+  ctx.quadraticCurveTo(r * 0.84, r * 0.1, r * 0.4, -r * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = palette.belly;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.74, -r * 0.18);
+  ctx.quadraticCurveTo(r * 1.0, -r * 0.16, r * 1.1, -r * 0.08);
+  ctx.quadraticCurveTo(r * 0.9, r * 0.06, r * 0.64, -r * 0.02);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = palette.bodyDark;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.34, -r * 0.58);
+  ctx.lineTo(r * 0.48, -r * 1.0);
+  ctx.lineTo(r * 0.62, -r * 0.52);
+  ctx.closePath();
+  ctx.moveTo(r * 0.66, -r * 0.5);
+  ctx.lineTo(r * 0.86, -r * 0.86);
+  ctx.lineTo(r * 0.9, -r * 0.38);
+  ctx.closePath();
+  ctx.fill();
+
+  drawEye(r);
+  ctx.fillStyle = "#1f120d";
+  ctx.beginPath();
+  ctx.arc(r * 1.08, -r * 0.12, Math.max(2, r * 0.07), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawCharacter(entity, characterId, isPlayer) {
   const bounce = Math.sin(state.elapsed * 8 + (entity.phase ?? 0)) * 4;
   const x = entity.x - state.camera.x;
   const y = entity.y - state.camera.y + bounce;
   const edible = !isPlayer && canEat(state.player, entity);
-  const body = isPlayer ? "#b85d2f" : edible ? "#c98d54" : "#74452f";
-  const tail = isPlayer ? "#e07b3d" : edible ? "#e2ad70" : "#5a3325";
+  const palette = characterPalette(characterId, edible, isPlayer);
+  const facing = entity.vx < -2 ? -1 : 1;
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = tail;
-  ctx.beginPath();
-  ctx.ellipse(-entity.radius * 0.76, -entity.radius * 0.2, entity.radius * 0.46, entity.radius * 0.78, -0.55, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, entity.radius * 0.9, entity.radius * 0.72, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(entity.radius * 0.56, -entity.radius * 0.36, entity.radius * 0.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#2a1a12";
-  ctx.beginPath();
-  ctx.arc(entity.radius * 0.68, -entity.radius * 0.44, Math.max(2, entity.radius * 0.08), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#f6d39b";
-  ctx.beginPath();
-  ctx.arc(entity.radius * 0.86, -entity.radius * 0.26, Math.max(2, entity.radius * 0.09), 0, Math.PI * 2);
-  ctx.fill();
+  ctx.scale(facing, 1);
+  if (characterId === "chipmunk") drawChipmunkShape(entity, palette);
+  else if (characterId === "fox") drawFoxShape(entity, palette);
+  else drawSquirrelShape(entity, palette);
   ctx.restore();
 }
 
@@ -168,8 +321,8 @@ function drawOverlay(title, subtitle) {
 function render() {
   drawBackground();
   const sorted = [...state.squirrels].sort((a, b) => a.y - b.y);
-  for (const squirrel of sorted) drawSquirrel(squirrel, false);
-  drawSquirrel(state.player, true);
+  for (const squirrel of sorted) drawCharacter(squirrel, "squirrel", false);
+  drawCharacter(state.player, selectedCharacter, true);
   drawHud();
   if (!started) drawOverlay("Squirrel Eat Squirrel", "Click or press Space to start");
   if (state.mode === "gameover") drawOverlay("Too Big To Bite", "Press Space to try again");
@@ -211,9 +364,31 @@ canvas.addEventListener("pointerdown", () => {
   if (!started || state.mode === "gameover") restart();
 });
 
+function syncCharacterPicker() {
+  for (const button of characterButtons) {
+    const isSelected = button.dataset.character === selectedCharacter;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  }
+}
+
+characterPicker?.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
+
+characterPicker?.addEventListener("click", (event) => {
+  const button = event.target instanceof Element ? event.target.closest("[data-character]") : null;
+  if (!button) return;
+  selectedCharacter = normalizeCharacterChoice(button.dataset.character);
+  syncCharacterPicker();
+  render();
+});
+
 window.render_game_to_text = () => JSON.stringify({
   coordinateSystem: "world origin top-left; x right, y down",
   mode: started ? state.mode : "menu",
+  selectedCharacter,
+  availableCharacters: CHARACTER_CHOICES.map((character) => character.id),
   score: state.score,
   player: {
     x: Math.round(state.player.x),
@@ -242,5 +417,6 @@ window.advanceTime = (ms) => {
 };
 
 seedWorld();
+syncCharacterPicker();
 render();
 requestAnimationFrame(frame);

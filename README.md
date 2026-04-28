@@ -12,6 +12,7 @@ The project is implemented with plain HTML, JavaScript modules, and the Canvas 2
 - Sine-wave bounce animation for squirrel movement
 - Camera tracking across a world larger than the viewport
 - Canvas-rendered forest background, trees, HUD, and sprites
+- Character picker with squirrel, chipmunk, and fox player skins
 - Fullscreen toggle with `F`
 - Restart with `Space`
 - Deterministic gameplay hooks for automated browser testing
@@ -22,6 +23,7 @@ The project is implemented with plain HTML, JavaScript modules, and the Canvas 2
 .
 ├── index.html                    # Browser entry point
 ├── main.mjs                      # Canvas rendering, input, game loop, HUD
+├── characterSkins.mjs            # Character picker options and defaults
 ├── squirrelLogic.mjs             # Core gameplay rules and state updates
 ├── squirrelGame.test.mjs         # Node tests for gameplay logic
 ├── squirrel_actions.json         # Browser playtest input sequence
@@ -73,6 +75,7 @@ Do not rely on double-clicking `index.html`. The game uses JavaScript modules, a
 | Action | Input |
 | --- | --- |
 | Move | `WASD` or arrow keys |
+| Choose character | Character picker buttons |
 | Start / restart | `Space` or click the canvas |
 | Fullscreen | `F` |
 
@@ -119,6 +122,7 @@ When moving this project into a fresh repository, include:
 
 - `index.html`
 - `main.mjs`
+- `characterSkins.mjs`
 - `squirrelLogic.mjs`
 - `squirrelGame.test.mjs`
 - `squirrel_actions.json`

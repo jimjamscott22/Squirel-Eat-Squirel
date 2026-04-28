@@ -5,6 +5,11 @@ import {
   clampCamera,
   updateCollision,
 } from "./squirrelLogic.mjs";
+import {
+  CHARACTER_CHOICES,
+  DEFAULT_CHARACTER,
+  normalizeCharacterChoice,
+} from "./characterSkins.mjs";
 
 function test(name, fn) {
   try {
@@ -57,4 +62,18 @@ test("camera remains inside the large world", () => {
     clampCamera({ x: 860, y: 660 }, { width: 320, height: 200 }, { width: 900, height: 700 }),
     { x: 580, y: 500 },
   );
+});
+
+test("character picker exposes three woodland choices with squirrel as default", () => {
+  assert.equal(DEFAULT_CHARACTER, "squirrel");
+  assert.deepEqual(
+    CHARACTER_CHOICES.map((character) => character.id),
+    ["squirrel", "chipmunk", "fox"],
+  );
+});
+
+test("unsupported character picker values fall back to squirrel", () => {
+  assert.equal(normalizeCharacterChoice("fox"), "fox");
+  assert.equal(normalizeCharacterChoice("bird"), "squirrel");
+  assert.equal(normalizeCharacterChoice(undefined), "squirrel");
 });
