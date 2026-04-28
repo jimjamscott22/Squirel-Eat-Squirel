@@ -35,7 +35,6 @@ Generated folders such as `node_modules/` and `output/` are intentionally ignore
 ## Requirements
 
 - Node.js 18 or newer
-- Python 3, used only for the simple local static server
 
 Playwright is listed as a dependency for automated browser playtests. The game itself runs in the browser without Playwright.
 
